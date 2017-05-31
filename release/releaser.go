@@ -74,7 +74,7 @@ func Release(rc *ReleaseContext, spec update.ReleaseSpec, cause update.Cause, lo
 	// Look up images, and calculate updates
 	timer = NewStageTimer("lookup_images")
 	// Figure out how the services are to be updated.
-	updates, err = calculateImageUpdates(rc, updates, &spec, results)
+	updates, err = calculateImageUpdates(rc, updates, &spec, results, logger)
 	timer.ObserveDuration()
 	if err != nil {
 		return "", nil, err
@@ -181,7 +181,7 @@ specs:
 // however we do want to see if we *can* do the replacements, because
 // if not, it indicates there's likely some problem with the running
 // system vs the definitions given in the repo.)
-func calculateImageUpdates(rc *ReleaseContext, candidates []*ServiceUpdate, spec *update.ReleaseSpec, results update.Result) ([]*ServiceUpdate, error) {
+func calculateImageUpdates(rc *ReleaseContext, candidates []*ServiceUpdate, spec *update.ReleaseSpec, results update.Result, logger log.Logger) ([]*ServiceUpdate, error) {
 	// Compile an `ImageMap` of all relevant images
 	var images ImageMap
 	var repo string
@@ -213,6 +213,14 @@ func calculateImageUpdates(rc *ReleaseContext, candidates []*ServiceUpdate, spec
 				Status: update.ReleaseStatusFailed,
 				Error:  err.Error(),
 			}
+			continue
+		}
+
+		// Filter container name if it's present in spec
+		if fc, err := filterContainers(containers, spec); err == nil {
+			containers = fc
+		} else {
+			logger.Log("err", err)
 			continue
 		}
 
@@ -284,6 +292,20 @@ func calculateImageUpdates(rc *ReleaseContext, candidates []*ServiceUpdate, spec
 	}
 
 	return updates, nil
+}
+
+func filterContainers(containers []cluster.Container, spec *update.ReleaseSpec) ([]cluster.Container, error) {
+	// Name unspecified, don't filter
+	if spec.ContainerName == "" {
+		return containers, nil
+	}
+	// Make sure the specified container exists
+	for _, c := range containers {
+		if c.Name == spec.ContainerName {
+			return []cluster.Container{c}, nil
+		}
+	}
+	return nil, fmt.Errorf("no container with name %s", spec.ContainerName)
 }
 
 func commitMessageFromReleaseSpec(spec *update.ReleaseSpec) string {
