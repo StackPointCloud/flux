@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics"
 
 	"github.com/weaveworks/flux"
 	"github.com/weaveworks/flux/cluster"
@@ -35,26 +34,57 @@ func Release(rc *ReleaseContext, spec update.ReleaseSpec, cause update.Cause, lo
 	}(started)
 
 	logger = log.NewContext(logger).With("type", "release")
-	// We time each stage of this process, and expose as metrics.
-	var timer *metrics.Timer
 
 	// FIXME pull from the repository? Or rely on something else to do that.
 	// ALSO: clean up in the result of failure, afterwards
 
-	// From here in, we collect the results of the calculations.
-	results = update.Result{}
-
-	// Figure out the services involved.
-	timer = NewStageTimer("select_services")
-	var updates []*ServiceUpdate
-	updates, err = selectServices(rc, &spec, results)
-	timer.ObserveDuration()
+	updates, results, err := CalculateRelease(rc, spec, cause, logger)
 	if err != nil {
 		return "", nil, err
 	}
 
-	// If the request was for a specific service and the service was
-	// not in the cluster, then add a result with a skipped status
+	logger.Log("updates", len(updates))
+	if ok, reason := exitEarly(updates, spec); ok {
+		logger.Log("exit", reason)
+		return "", results, nil
+	}
+
+	revision, err := ApplyChanges(rc, updates, spec, cause, results)
+	return revision, results, err
+}
+
+func exitEarly(updates []*ServiceUpdate, spec update.ReleaseSpec) (ok bool, reason string) {
+	if len(updates) == 0 {
+		return true, "no images to update for services given"
+	}
+
+	if spec.Kind == update.ReleaseKindPlan {
+		return true, "dry-run"
+	}
+	return false, ""
+}
+
+func CalculateRelease(rc *ReleaseContext, spec update.ReleaseSpec, cause update.Cause, logger log.Logger) ([]*ServiceUpdate, update.Result, error) {
+	results := update.Result{}
+	timer := NewStageTimer("select_services")
+	updates, err := selectServices(rc, &spec, results)
+	timer.ObserveDuration()
+	if err != nil {
+		return nil, nil, err
+	}
+	markSkipped(spec, results)
+
+	timer = NewStageTimer("lookup_images")
+	updates, err = calculateImageUpdates(rc, updates, &spec, results, logger)
+	timer.ObserveDuration()
+	if err != nil {
+		return nil, nil, err
+	}
+	return updates, results, nil
+}
+
+// marks any service skipped if it's not in the cluster
+func markSkipped(spec update.ReleaseSpec, results update.Result) {
 	for _, v := range spec.ServiceSpecs {
 		if v == update.ServiceSpecAll {
 			continue
@@ -70,39 +100,16 @@ func Release(rc *ReleaseContext, spec update.ReleaseSpec, cause update.Cause, lo
 			}
 		}
 	}
+}
 
-	// Look up images, and calculate updates
-	timer = NewStageTimer("lookup_images")
-	// Figure out how the services are to be updated.
-	updates, err = calculateImageUpdates(rc, updates, &spec, results, logger)
-	timer.ObserveDuration()
-	if err != nil {
-		return "", nil, err
-	}
-
-	// At this point we may have filtered the updates we can do down
-	// to nothing. Check and exit early if so.
-	logger.Log("updates", len(updates))
-	if len(updates) == 0 {
-		logger.Log("exit", "no images to update for services given")
-		return "", results, nil
-	}
-
-	// If it's a dry run, we're done.
-	if spec.Kind == update.ReleaseKindPlan {
-		logger.Log("exit", "dry-run")
-		return "", results, nil
-	}
-
-	timer = NewStageTimer("push_changes")
+func ApplyChanges(rc *ReleaseContext, updates []*ServiceUpdate, spec update.ReleaseSpec, cause update.Cause, results update.Result) (commitRef string, err error) {
+	timer := NewStageTimer("push_changes")
 	err = rc.PushChanges(updates, &spec, cause, results)
 	timer.ObserveDuration()
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
-
-	revision, err := rc.Repo.HeadRevision()
-	return revision, results, err
+	return rc.Repo.HeadRevision()
 }
 
 // Take the spec given in the job, and figure out which services are
