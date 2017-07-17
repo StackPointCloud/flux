@@ -12,13 +12,13 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
-	discovery "k8s.io/client-go/1.5/discovery"
-	k8sclient "k8s.io/client-go/1.5/kubernetes"
-	v1core "k8s.io/client-go/1.5/kubernetes/typed/core/v1"
-	v1beta1extensions "k8s.io/client-go/1.5/kubernetes/typed/extensions/v1beta1"
-	api "k8s.io/client-go/1.5/pkg/api"
-	v1 "k8s.io/client-go/1.5/pkg/api/v1"
-	apiext "k8s.io/client-go/1.5/pkg/apis/extensions/v1beta1"
+	discovery "k8s.io/client-go/discovery"
+	k8sclient "k8s.io/client-go/kubernetes"
+	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
+	v1beta1extensions "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
+	api "k8s.io/client-go/pkg/api/v1" // formerly "k8s.io/client-go/pkg/api"
+	v1 "k8s.io/client-go/pkg/api/v1"
+	apiext "k8s.io/client-go/pkg/apis/extensions/v1beta1"
 
 	"github.com/weaveworks/flux"
 	"github.com/weaveworks/flux/cluster"
@@ -33,8 +33,8 @@ const (
 
 type extendedClient struct {
 	discovery.DiscoveryInterface
-	v1core.CoreInterface
-	v1beta1extensions.ExtensionsInterface
+	v1core.CoreV1Interface
+	v1beta1extensions.ExtensionsV1beta1Interface
 }
 
 type apiObject struct {

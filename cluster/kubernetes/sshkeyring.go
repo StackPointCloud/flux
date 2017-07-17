@@ -7,8 +7,8 @@ import (
 	"path"
 	"sync"
 
-	"k8s.io/client-go/1.5/kubernetes/typed/core/v1"
-	"k8s.io/client-go/1.5/pkg/api"
+	"k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/pkg/api"
 
 	"github.com/weaveworks/flux/ssh"
 )

@@ -3,6 +3,7 @@
 
 DOCKER?=docker
 TEST_FLAGS?=
+TEST_PKG?=$(shell go list ./... | grep -v "^github.com/weaveworks/flux/vendor" | sort -u)
 
 include docker/kubectl.version
 
@@ -37,8 +38,8 @@ realclean: clean
 	rm -rf ./cache
 
 test:
-	export PATH="$$PATH:$$PWD/cmd/fluxsvc"; \
-	go test -v ${TEST_FLAGS} $(shell go list ./... | grep -v "^github.com/weaveworks/flux/vendor" | sort -u)
+	PATH="$$PATH:$PWD/cmd/fluxsvc" \
+	go test -v ${TEST_FLAGS} ${TEST_PKG}
 
 build/migrations.tar: $(MIGRATIONS)
 	tar cf $@ db/migrations

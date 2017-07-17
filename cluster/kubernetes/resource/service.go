@@ -3,7 +3,7 @@ package resource
 import (
 	"fmt"
 
-	"k8s.io/client-go/1.5/pkg/labels"
+	"k8s.io/client-go/pkg/labels"
 
 	"github.com/weaveworks/flux"
 	"github.com/weaveworks/flux/resource"
