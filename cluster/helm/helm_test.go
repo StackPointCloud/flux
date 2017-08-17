@@ -57,7 +57,7 @@ func TestHelmSomeServices(t *testing.T) {
 	var helm cluster.Cluster
 	helm = getNewHelm(t)
 
-	id := flux.MakeServiceID("default", "rolling-bird-openvpn")
+	id := flux.MakeServiceID("spcqm-system", "redis-redis")
 	services, err := helm.SomeServices([]flux.ServiceID{id})
 	if err != nil {
 		t.Errorf("Helm SomeServices failed, %s", err)

@@ -114,6 +114,8 @@ func main() {
 		logger = log.NewContext(logger).With("caller", log.DefaultCaller)
 	}
 
+
+	// kubernetes-specific -- must be refactored to switch in helm
 	// Platform component.
 	var clusterVersion string
 	var sshKeyRing ssh.KeyRing

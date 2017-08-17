@@ -60,8 +60,10 @@ func newKubernetesClient() (*kubernetes.Clientset, error) {
 	var err error
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
+		// in-cluster
 		config, err = rest.InClusterConfig()
 	} else {
+		// assume external
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 	}
 	if err != nil {
